@@ -1,0 +1,14 @@
+[
+  {
+    "title": "Внимание к каждой детали",
+    "description": "Разбираемся в причине неисправности и согласуем план работы до ремонта.",
+    "preview_image": "images/repair-hero-preview.webp",
+    "full_image": "images/repair-hero.webp"
+  },
+  {
+    "title": "Место, где технике дают второй шанс",
+    "description": "Организованное рабочее пространство для диагностики и ремонта ноутбуков.",
+    "preview_image": "images/workshop-preview.webp",
+    "full_image": "images/workshop.webp"
+  }
+]
