@@ -122,6 +122,19 @@ npm install --no-save --package-lock=false vue@^3.5 @vitejs/plugin-vue@^6.0.8 la
 появится ссылка на неё. При `BROADCAST_CONNECTION=null` используется обычная
 сборка `npm run build`.
 
+### Статистика для модераторов
+
+Выполните `php artisan migrate`. Откройте опубликованную статью и оставьте
+комментарий. Для проверки включите `ARTICLE_STATISTICS_EVERY_MINUTE=true`
+в `.env`, выполните `php artisan config:clear` и `php artisan schedule:run`.
+В режиме проверки отчёт содержит данные за текущий день. С `MAIL_MAILER=log`
+результат можно проверить в журнале.
+
+При `ARTICLE_STATISTICS_EVERY_MINUTE=false` отчёт уходит раз в сутки,
+в полночь, за прошедший день. Для автоматического запуска оставьте
+`php artisan schedule:work` либо вызывайте `php artisan schedule:run`
+каждую минуту через системный планировщик.
+
 ### Запуск тестов
 
 ```powershell

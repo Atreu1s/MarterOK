@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'article_statistics_every_minute' => env('ARTICLE_STATISTICS_EVERY_MINUTE', false),
     'name' => 'Почин',
     'author' => env('SITE_AUTHOR', 'Захаров Артем Михайлович'),
     'group' => env('SITE_GROUP', '257-321'),

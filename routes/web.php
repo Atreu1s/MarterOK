@@ -24,6 +24,7 @@ Route::get('/masters/{master}', [MasterController::class, 'show'])->name('master
 // Лабы 4–5: просмотр статей доступен всем.
 Route::resource('articles', ArticleController::class)
     ->only(['index', 'show'])
+    ->middlewareFor('show', 'article.view')
     ->whereNumber('article');
 
 // Лабы 3 и 6: регистрация и вход только для гостей.
