@@ -7,10 +7,12 @@ use App\Mail\ArticleCreated;
 use App\Models\Article;
 use App\Models\Comment;
 use App\Models\User;
+use App\Notifications\NewArticleNotification;
 use App\Policies\ArticlePolicy;
 use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -163,6 +165,7 @@ class LabsTest extends TestCase
         $this->actingAs($reader)->post('/articles/'.$article->id.'/comments', ['body' => 'Спасибо за понятное объяснение.', 'status' => 'approved', 'is_approved' => true])->assertRedirect()->assertSessionHas('success', 'Комментарий ожидает модерации.');
         $comment = Comment::firstOrFail();
         $this->assertFalse($comment->is_approved);
+        $this->get('/articles/'.$article->id)->assertDontSee('Спасибо за понятное объяснение.');
         $this->patch('/comments/'.$comment->id.'/approve')->assertForbidden();
         $this->actingAs($this->moderator())->get('/moderation')->assertViewHas('comments', fn ($comments): bool => $comments->total() === 1);
         $this->patch('/comments/'.$comment->id.'/approve')->assertRedirect();
@@ -179,5 +182,41 @@ class LabsTest extends TestCase
         $draft = Article::factory()->create(['title' => 'Уход скрытый', 'category' => 'Уход']);
         $this->get('/articles?q=Уход&category=Уход&page=2')->assertViewHas('articles', fn ($articles): bool => $articles->total() === 11 && $articles->count() === 2 && str_contains($articles->url(1), 'q='));
         $this->get('/articles/'.$draft->id)->assertNotFound();
+    }
+
+    public function test_api_article_publication_keeps_web_routes_and_creates_private_reader_notification(): void
+    {
+        $moderator = $this->moderator();
+        $moderator->update(['password' => 'StrongPass123!']);
+        $reader = User::factory()->create();
+        $otherReader = User::factory()->create();
+        $this->assertSame(url('/articles'), route('articles.index'));
+
+        $token = $this->postJson('/api/login', [
+            'email' => $moderator->email,
+            'password' => 'StrongPass123!',
+        ])->assertOk()->json('token');
+
+        $articleId = $this->withToken($token)->postJson('/api/articles', [
+            'title' => 'Новая статья из API',
+            'excerpt' => 'Описание',
+            'body' => 'Полный текст статьи.',
+            'category' => 'Ремонт',
+            'status' => 'published',
+        ])->assertCreated()->json('data.id');
+
+        $notification = $reader->unreadNotifications()->firstOrFail();
+        $this->assertSame(NewArticleNotification::class, $notification->type);
+        $this->assertSame($articleId, $notification->data['article_id']);
+        $this->assertSame(0, $moderator->notifications()->count());
+
+        $this->postJson('/api/logout')->assertNoContent();
+        $this->assertSame(0, $moderator->tokens()->count());
+        Auth::forgetGuards();
+        $this->flushHeaders()->actingAs($otherReader, 'web')
+            ->post(route('notifications.read', $notification))->assertNotFound();
+        $this->actingAs($reader, 'web')->post(route('notifications.read', $notification))
+            ->assertRedirect(route('articles.show', $articleId));
+        $this->assertNotNull($notification->fresh()->read_at);
     }
 }

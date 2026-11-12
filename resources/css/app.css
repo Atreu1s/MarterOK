@@ -1088,6 +1088,9 @@ input[type="file"]::file-selector-button { border: 1px solid var(--ink); border-
 }
 
 .article-notifications summary {
+    display: flex;
+    align-items: center;
+    gap: .25rem;
     cursor: pointer;
 }
 

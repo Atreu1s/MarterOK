@@ -4,7 +4,10 @@
     $unreadCount = $unread->count();
 @endphp
 <details class="article-notifications">
-    <summary>Уведомления ({{ $unreadCount }})</summary>
+    <summary aria-label="Непрочитанные уведомления: {{ $unreadCount }}">
+        @include('components.icon', ['name' => 'message'])
+        <span aria-hidden="true">{{ $unreadCount }}</span>
+    </summary>
     <div class="article-notifications-list">
         @forelse($unread->limit(10)->get() as $notification)
             <form method="post" action="{{ route('notifications.read', $notification->id) }}">

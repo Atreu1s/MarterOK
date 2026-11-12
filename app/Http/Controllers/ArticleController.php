@@ -2,35 +2,25 @@
 
 namespace App\Http\Controllers;
 
-use App\Events\NewArticleEvent;
 use App\Http\Requests\ArticleRequest;
-use App\Jobs\VeryLongJob;
 use App\Models\Article;
-use App\Models\User;
-use App\Notifications\NewArticleNotification;
 use App\Support\ArticleCache;
+use App\Support\ArticleWriter;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Storage;
 
 class ArticleController extends Controller
 {
-    public function __construct(private ArticleCache $cache) {}
+    public function __construct(private ArticleCache $cache, private ArticleWriter $writer) {}
 
     public function index(Request $request): View
     {
-        $filters = $request->validate([
-            'q' => ['nullable', 'string', 'max:100'],
-            'category' => ['nullable', 'string', 'max:80'],
-            'status' => ['nullable', 'in:draft,published'],
-        ]);
+        $filters = $this->cache->validateFilters($request);
         $isModerator = $request->user()?->isModerator() ?? false;
-
         $data = $this->cache->listing($filters, $isModerator);
-        $data['articles']->withPath($request->url())->withQueryString();
+        $data['articles'] = (clone $data['articles'])->withPath($request->url())->withQueryString();
 
         return view('articles.index', $data);
     }
@@ -40,7 +30,7 @@ class ArticleController extends Controller
         abort_unless($article->status === 'published' || auth()->user()?->isModerator(), 404);
 
         $data = $this->cache->details($article);
-        $data['comments']->withPath(request()->url());
+        $data['comments'] = (clone $data['comments'])->withPath(request()->url());
 
         return view('articles.show', $data);
     }
@@ -54,32 +44,7 @@ class ArticleController extends Controller
 
     public function store(ArticleRequest $request): RedirectResponse
     {
-        Gate::authorize('create', Article::class);
-        $data = $request->safe()->except('cover');
-        if ($request->hasFile('cover')) {
-            $data['cover'] = $request->file('cover')->store('covers', 'public');
-        }
-        try {
-            $article = Article::create($data + ['user_id' => $request->user()->id]);
-        } catch (\Throwable $exception) {
-            if (isset($data['cover'])) {
-                Storage::disk('public')->delete($data['cover']);
-            }
-            throw $exception;
-        }
-
-        $this->cache->invalidateListings();
-        VeryLongJob::dispatch($article->id)->afterCommit();
-        if ($article->status === 'published') {
-            NewArticleEvent::dispatch($article);
-            $readers = User::where('is_blocked', false)
-                ->whereKeyNot($request->user()->id)
-                ->whereHas('role', fn ($query) => $query->where('name', 'reader'));
-
-            $readers->chunkById(100, function ($recipients) use ($article): void {
-                Notification::send($recipients, new NewArticleNotification($article));
-            });
-        }
+        $article = $this->writer->create($request);
 
         return redirect()->route('articles.show', $article)->with('success', 'Материал создан.');
     }
@@ -93,25 +58,7 @@ class ArticleController extends Controller
 
     public function update(ArticleRequest $request, Article $article): RedirectResponse
     {
-        Gate::authorize('update', $article);
-        $data = $request->safe()->except('cover');
-        if ($request->hasFile('cover')) {
-            $data['cover'] = $request->file('cover')->store('covers', 'public');
-        }
-        $previous = $article->cover;
-        try {
-            $article->update($data);
-        } catch (\Throwable $exception) {
-            if (isset($data['cover'])) {
-                Storage::disk('public')->delete($data['cover']);
-            }
-            throw $exception;
-        }
-        if (isset($data['cover']) && $previous && str_starts_with($previous, 'covers/')) {
-            Storage::disk('public')->delete($previous);
-        }
-        $this->cache->invalidateListings();
-        $this->cache->invalidateDetails($article->id);
+        $this->writer->update($request, $article);
 
         return redirect()->route('articles.show', $article)->with('success', 'Изменения сохранены.');
     }
@@ -119,13 +66,7 @@ class ArticleController extends Controller
     public function destroy(Article $article): RedirectResponse
     {
         Gate::authorize('delete', $article);
-        $cover = $article->cover;
-        $article->delete();
-        $this->cache->invalidateListings();
-        $this->cache->invalidateDetails($article->id);
-        if ($cover && str_starts_with($cover, 'covers/')) {
-            Storage::disk('public')->delete($cover);
-        }
+        $this->writer->delete($article);
 
         return redirect()->route('articles.index')->with('success', 'Материал удалён.');
     }

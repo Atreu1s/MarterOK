@@ -97,7 +97,7 @@ routes/web.php        маршруты
 tests/Feature/        автотесты
 ```
 
-## Тесты
+## Лабораторные работы №10–15
 
 ### Очередь и уведомления в реальном времени
 
@@ -135,7 +135,28 @@ npm install --no-save --package-lock=false vue@^3.5 @vitejs/plugin-vue@^6.0.8 la
 `php artisan schedule:work` либо вызывайте `php artisan schedule:run`
 каждую минуту через системный планировщик.
 
-### Запуск тестов
+### REST API
+
+В Postman или Insomnia укажите базовый адрес `http://127.0.0.1:8010/api`
+и заголовок `Accept: application/json`. Для запросов с JSON добавьте
+`Content-Type: application/json`.
+
+| Запрос | Параметры и результат |
+| --- | --- |
+| `POST /register` | `name`, `email`, `password`, `password_confirmation`. Возвращает пользователя и 201. |
+| `POST /login` | `email`, `password`. Возвращает токен Sanctum. |
+| `GET /articles` | Список с пагинацией. Фильтры `q`, `category`, `page`, для модератора также `status`. |
+| `GET /articles/{id}` | Статья, опубликованные комментарии и похожие статьи. Черновики видны модераторам. |
+| `POST /articles` | Модератор создаёт статью и получает 201. |
+| `PUT /articles/{id}` | Модератор сохраняет изменения. Для файла обложки используйте `POST` с `multipart/form-data` и `_method=PUT`. |
+| `DELETE /articles/{id}` | Модератор удаляет статью и получает 204. |
+| `POST /logout` | Отзывает использованный токен и возвращает 204. |
+
+Передайте токен в заголовке `Authorization: Bearer <token>`. Для записи
+статьи обязательны `title`, `excerpt`, `body`, `category`, `status`
+(`draft` или `published`). Обложку можно передать в поле `cover`.
+
+## Тесты
 
 ```powershell
 php artisan test

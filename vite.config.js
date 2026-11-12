@@ -6,7 +6,7 @@ export default defineConfig(async ({ mode }) => {
     const plugins = [];
 
     if (mode === 'broadcasting') {
-        const { default: vue } = await import('@vitejs/plugin-vue');
+        const { default: vue } = await import(import.meta.resolve('@vitejs/plugin-vue'));
         plugins.push(vue());
         input.push('resources/js/article-broadcast.js');
     }

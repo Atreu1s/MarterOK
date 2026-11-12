@@ -3,12 +3,22 @@
 namespace App\Support;
 
 use App\Models\Article;
+use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class ArticleCache
 {
+    public function validateFilters(Request $request): array
+    {
+        return $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'category' => ['nullable', 'string', 'max:80'],
+            'status' => ['nullable', 'in:draft,published'],
+        ]);
+    }
+
     public function listing(array $filters, bool $isModerator): array
     {
         $page = LengthAwarePaginator::resolveCurrentPage();

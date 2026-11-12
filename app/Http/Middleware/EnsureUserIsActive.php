@@ -13,9 +13,11 @@ class EnsureUserIsActive
     {
         if ($request->user()?->is_blocked) {
             $request->user()->tokens()->delete();
-            Auth::guard('web')->logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
+            if ($request->hasSession()) {
+                Auth::guard('web')->logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+            }
             abort(403, 'Аккаунт заблокирован. Обратитесь к модератору.');
         }
 
