@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\VeryLongJob;
 use App\Mail\ArticleCreated;
 use App\Models\Article;
 use App\Models\Comment;
@@ -11,6 +12,7 @@ use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -129,9 +131,12 @@ class LabsTest extends TestCase
 
     public function test_lab_eight_sends_mailable_to_active_moderator_and_uses_build(): void
     {
+        Queue::fake();
         $moderator = $this->moderator();
         $this->actingAs($moderator)->post('/articles', ['title' => 'Письмо модератору', 'excerpt' => 'Кратко', 'body' => 'Текст статьи.', 'category' => 'Ремонт', 'status' => 'draft'])->assertRedirect();
         $article = Article::firstOrFail();
+        Queue::assertPushed(VeryLongJob::class, fn (VeryLongJob $job): bool => $job->articleId === $article->id && $job->afterCommit);
+        (new VeryLongJob($article->id))->handle();
         Mail::assertSent(ArticleCreated::class, fn (ArticleCreated $mail): bool => $mail->hasTo($moderator->email) && $mail->article->id === $article->id);
         $mail = (new ArticleCreated($article))->build();
         $this->assertSame('mail.article-created', $mail->view);
@@ -140,12 +145,15 @@ class LabsTest extends TestCase
 
     public function test_mail_failure_does_not_undo_article_creation(): void
     {
+        Queue::fake();
         $moderator = $this->moderator();
         Mail::shouldReceive('to')->once()->andThrow(new \RuntimeException('Transport unavailable'));
         $this->actingAs($moderator)
             ->post('/articles', ['title' => 'Без почты', 'excerpt' => 'Кратко', 'body' => 'Текст статьи.', 'category' => 'Ремонт', 'status' => 'draft'])
             ->assertRedirect();
-        $this->assertDatabaseHas('articles', ['title' => 'Без почты']);
+        $article = Article::where('title', 'Без почты')->firstOrFail();
+        (new VeryLongJob($article->id))->handle();
+        $this->assertModelExists($article);
     }
 
     public function test_lab_nine_pending_comment_message_and_moderation_actions(): void

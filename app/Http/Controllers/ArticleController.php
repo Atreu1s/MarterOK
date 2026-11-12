@@ -3,15 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ArticleRequest;
-use App\Mail\ArticleCreated;
+use App\Jobs\VeryLongJob;
 use App\Models\Article;
-use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 class ArticleController extends Controller
@@ -79,7 +76,7 @@ class ArticleController extends Controller
             throw $exception;
         }
 
-        $this->notifyModerators($article);
+        VeryLongJob::dispatch($article->id)->afterCommit();
 
         return redirect()->route('articles.show', $article)->with('success', 'Материал создан.');
     }
@@ -126,25 +123,4 @@ class ArticleController extends Controller
         return redirect()->route('articles.index')->with('success', 'Материал удалён.');
     }
 
-    /**
-     * Лаба 8: после сохранения статьи в БД отправляем письмо каждому модератору
-     * через фасад Mail. Сбой почты не отменяет создание статьи — пишем его в журнал.
-     */
-    private function notifyModerators(Article $article): void
-    {
-        $moderators = User::where('is_blocked', false)
-            ->whereHas('role', fn ($query) => $query->where('name', 'moderator'))
-            ->get();
-
-        foreach ($moderators as $moderator) {
-            try {
-                Mail::to($moderator)->send(new ArticleCreated($article));
-            } catch (\Throwable $exception) {
-                Log::warning('Письмо о статье не отправлено.', [
-                    'article_id' => $article->id,
-                    'error' => $exception->getMessage(),
-                ]);
-            }
-        }
-    }
 }
