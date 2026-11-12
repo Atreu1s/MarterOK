@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\NewArticleEvent;
 use App\Http\Requests\ArticleRequest;
 use App\Jobs\VeryLongJob;
 use App\Models\Article;
@@ -77,6 +78,9 @@ class ArticleController extends Controller
         }
 
         VeryLongJob::dispatch($article->id)->afterCommit();
+        if ($article->status === 'published') {
+            NewArticleEvent::dispatch($article);
+        }
 
         return redirect()->route('articles.show', $article)->with('success', 'Материал создан.');
     }
@@ -122,5 +126,4 @@ class ArticleController extends Controller
 
         return redirect()->route('articles.index')->with('success', 'Материал удалён.');
     }
-
 }

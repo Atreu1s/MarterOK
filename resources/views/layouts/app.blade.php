@@ -10,6 +10,9 @@
     <title>@yield('title', 'Ремонт начинается с понятного решения') — Почин</title>
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @if(config('broadcasting.default') === 'pusher')
+        @vite('resources/js/article-broadcast.js')
+    @endif
     @stack('head')
 </head>
 <body class="@yield('body-class')">
@@ -165,6 +168,9 @@
 </nav>
         @endif @endauth
     </header>
+    @if(config('broadcasting.default') === 'pusher')
+        <div id="article-broadcast" class="container"></div>
+    @endif
     <main id="main" tabindex="-1">
         @if(session('success'))<div class="container">
 <div class="notice notice-success" role="status">@include('components.icon', ['name' => 'check'])<span>{{ session('success') }}</span>

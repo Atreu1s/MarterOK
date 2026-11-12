@@ -99,6 +99,31 @@ tests/Feature/        автотесты
 
 ## Тесты
 
+### Очередь и уведомления в реальном времени
+
+Миграция таблицы `jobs` уже входит в проект. При `QUEUE_CONNECTION=database`
+в отдельном терминале запустите `php artisan queue:work`. Создайте статью
+и проверьте письмо модератору. С `MAIL_MAILER=log` письмо появится в журнале.
+
+Для лабораторной №11 создайте приложение в Pusher Channels и установите
+дополнительные зависимости.
+
+```powershell
+composer require pusher/pusher-php-server
+npm install --no-save --package-lock=false vue@^3.5 @vitejs/plugin-vue@^6.0.8 laravel-echo@^2 pusher-js@^8
+```
+
+Заполните `PUSHER_APP_ID`, `PUSHER_APP_KEY`, `PUSHER_APP_SECRET` и
+`PUSHER_APP_CLUSTER` в `.env` и выставьте `BROADCAST_CONNECTION=pusher`.
+Добавьте переменные `VITE_PUSHER_APP_KEY` и `VITE_PUSHER_APP_CLUSTER` по образцу
+из `.env.example`. Выполните `npm run build -- --mode broadcasting`,
+`php artisan config:clear` и перезапустите обработчик очереди.
+Откройте сайт в отдельной вкладке и опубликуйте статью. В открытой вкладке
+появится ссылка на неё. При `BROADCAST_CONNECTION=null` используется обычная
+сборка `npm run build`.
+
+### Запуск тестов
+
 ```powershell
 php artisan test
 ```
