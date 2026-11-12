@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\CommentRequest;
 use App\Models\Article;
 use App\Models\Comment;
+use App\Support\ArticleCache;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\Gate;
 
 class CommentController extends Controller
 {
+    public function __construct(private ArticleCache $cache) {}
+
     public function store(CommentRequest $request, Article $article): RedirectResponse
     {
         abort_unless($article->status === 'published', 404);
@@ -40,6 +43,7 @@ class CommentController extends Controller
     {
         Gate::authorize('moderate');
         $comment->approve();
+        $this->cache->invalidateDetails($comment->article_id);
 
         return back()->with('success', 'Комментарий опубликован.');
     }
@@ -48,6 +52,9 @@ class CommentController extends Controller
     {
         Gate::authorize('moderate');
         $comment->delete();
+        if ($comment->is_approved) {
+            $this->cache->invalidateDetails($comment->article_id);
+        }
 
         return back()->with('success', 'Комментарий отклонён.');
     }
@@ -62,9 +69,15 @@ class CommentController extends Controller
         ]);
 
         $selected = Comment::pending()->whereIn('id', $data['ids']);
-        $data['action'] === 'approve'
-            ? $selected->update(['is_approved' => true])
-            : $selected->delete();
+        if ($data['action'] === 'approve') {
+            $articleIds = (clone $selected)->distinct()->pluck('article_id');
+            $selected->update(['is_approved' => true]);
+            foreach ($articleIds as $articleId) {
+                $this->cache->invalidateDetails($articleId);
+            }
+        } else {
+            $selected->delete();
+        }
 
         return back()->with('success', 'Выбранные комментарии обработаны.');
     }

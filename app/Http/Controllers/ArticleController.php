@@ -8,6 +8,7 @@ use App\Jobs\VeryLongJob;
 use App\Models\Article;
 use App\Models\User;
 use App\Notifications\NewArticleNotification;
+use App\Support\ArticleCache;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\Storage;
 
 class ArticleController extends Controller
 {
+    public function __construct(private ArticleCache $cache) {}
+
     public function index(Request $request): View
     {
         $filters = $request->validate([
@@ -26,35 +29,20 @@ class ArticleController extends Controller
         ]);
         $isModerator = $request->user()?->isModerator() ?? false;
 
-        $articles = Article::query()
-            ->when(! $isModerator, fn ($query) => $query->published())
-            ->when($filters['q'] ?? null, fn ($query, $value) => $query->where('title', 'like', '%'.$value.'%'))
-            ->when($filters['category'] ?? null, fn ($query, $value) => $query->where('category', $value))
-            ->when($isModerator && ($filters['status'] ?? null), fn ($query) => $query->where('status', $filters['status']))
-            ->latest()
-            ->orderByDesc('id')
-            ->paginate(9)
-            ->withQueryString();
+        $data = $this->cache->listing($filters, $isModerator);
+        $data['articles']->withPath($request->url())->withQueryString();
 
-        $categories = Article::published()->select('category')->distinct()->orderBy('category')->pluck('category');
-
-        return view('articles.index', compact('articles', 'categories', 'filters'));
+        return view('articles.index', $data);
     }
 
     public function show(Article $article): View
     {
         abort_unless($article->status === 'published' || auth()->user()?->isModerator(), 404);
 
-        // Лаба 9: на странице статьи показываем только одобренные комментарии.
-        $comments = $article->comments()->approved()->with('user')->latest()->paginate(10);
-        $related = Article::published()
-            ->whereKeyNot($article->id)
-            ->where('category', $article->category)
-            ->latest()
-            ->take(2)
-            ->get();
+        $data = $this->cache->details($article);
+        $data['comments']->withPath(request()->url());
 
-        return view('articles.show', compact('article', 'comments', 'related'));
+        return view('articles.show', $data);
     }
 
     public function create(): View
@@ -80,6 +68,7 @@ class ArticleController extends Controller
             throw $exception;
         }
 
+        $this->cache->invalidateListings();
         VeryLongJob::dispatch($article->id)->afterCommit();
         if ($article->status === 'published') {
             NewArticleEvent::dispatch($article);
@@ -121,6 +110,8 @@ class ArticleController extends Controller
         if (isset($data['cover']) && $previous && str_starts_with($previous, 'covers/')) {
             Storage::disk('public')->delete($previous);
         }
+        $this->cache->invalidateListings();
+        $this->cache->invalidateDetails($article->id);
 
         return redirect()->route('articles.show', $article)->with('success', 'Изменения сохранены.');
     }
@@ -130,6 +121,8 @@ class ArticleController extends Controller
         Gate::authorize('delete', $article);
         $cover = $article->cover;
         $article->delete();
+        $this->cache->invalidateListings();
+        $this->cache->invalidateDetails($article->id);
         if ($cover && str_starts_with($cover, 'covers/')) {
             Storage::disk('public')->delete($cover);
         }
