@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\MainController;
 use App\Http\Controllers\MasterController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\RepairController;
 use App\Http\Controllers\WorkspaceController;
@@ -36,6 +37,9 @@ Route::middleware('guest')->group(function (): void {
 // Лаба 6: всё ниже доступно только после входа.
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'read'])
+        ->whereUuid('notification')
+        ->name('notifications.read');
 
     // Лабы 5 и 7: CRUD статей, права проверяет ArticlePolicy.
     Route::resource('articles', ArticleController::class)

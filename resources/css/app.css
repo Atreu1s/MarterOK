@@ -1083,3 +1083,31 @@ html[data-motion=reduced] .reveal { opacity: 1; transform: none; }
 @media(max-width:650px) { .master-card-photo { margin-inline: -24px; aspect-ratio: 1.3; } .work-example-grid { grid-template-columns: 1fr; gap: 25px; } .work-example-body { padding: 24px; } .work-example h3 { font-size: 28px; } }
 
 input[type="file"]::file-selector-button { border: 1px solid var(--ink); border-radius: 0; background: var(--accent); color: var(--ink); padding: 10px 14px; margin-right: 12px; font: inherit; font-weight: 600; cursor: pointer; }
+.article-notifications {
+    position: relative;
+}
+
+.article-notifications summary {
+    cursor: pointer;
+}
+
+.article-notifications-list {
+    position: absolute;
+    inset-inline-end: 0;
+    z-index: 10;
+    width: min(17rem, 65vw);
+    max-height: 60vh;
+    overflow: auto;
+    padding: .75rem;
+    background: white;
+    color: #1d1d1d;
+    border: 1px solid #dedede;
+    border-radius: .5rem;
+}
+
+.article-notifications-list button {
+    width: 100%;
+    text-align: left;
+    padding: .4rem;
+    cursor: pointer;
+}

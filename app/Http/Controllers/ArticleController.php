@@ -6,10 +6,13 @@ use App\Events\NewArticleEvent;
 use App\Http\Requests\ArticleRequest;
 use App\Jobs\VeryLongJob;
 use App\Models\Article;
+use App\Models\User;
+use App\Notifications\NewArticleNotification;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 
 class ArticleController extends Controller
@@ -80,6 +83,13 @@ class ArticleController extends Controller
         VeryLongJob::dispatch($article->id)->afterCommit();
         if ($article->status === 'published') {
             NewArticleEvent::dispatch($article);
+            $readers = User::where('is_blocked', false)
+                ->whereKeyNot($request->user()->id)
+                ->whereHas('role', fn ($query) => $query->where('name', 'reader'));
+
+            $readers->chunkById(100, function ($recipients) use ($article): void {
+                Notification::send($recipients, new NewArticleNotification($article));
+            });
         }
 
         return redirect()->route('articles.show', $article)->with('success', 'Материал создан.');

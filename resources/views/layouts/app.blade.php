@@ -143,6 +143,7 @@
             </nav>
             <div class="header-actions">
                 @auth
+                    @include('components.article-notifications')
                     <a class="account-link" href="{{ route('account') }}">@include('components.icon', ['name' => 'user'])<span>Кабинет</span>
 </a>
                     <form method="post" action="{{ route('logout') }}">@csrf<button class="icon-button logout-button" aria-label="Выйти из аккаунта" title="Выйти">@include('components.icon', ['name' => 'logout'])</button>
